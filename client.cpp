@@ -41,9 +41,6 @@ int main(int argc, char *argv[]){
         // getting start time
         gettimeofday(&start_time, NULL);
 
-        // syncing i/o
-        ios_base::sync_with_stdio(false);
-
         string filename = "x1.csv";
         string output_path = string("received/") + filename;
         FILE *f = fopen(output_path.c_str(), "wb");
