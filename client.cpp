@@ -45,7 +45,41 @@ int main(int argc, char *argv[]){
         string output_path = string("received/") + filename;
         FILE *f = fopen(output_path.c_str(), "wb");
 
+        
+        int patientNum = -1;
+        //for(int i = 0; i < sizeof(argv); i++){
+        //    cout << "wow" << endl; 
+        //}
+        if(patientNum != -1){
+            ofstream request_data_point;
+            request_data_point.open("received/x1.csv");
 
+            double x = 0;
+            while(x < 59.996){
+                datamsg dat1(patientNum, x, 1);
+                datamsg dat2(patientNum, x, 2);
+
+                chan.cwrite(&dat1, sizeof(datamsg));
+                double data1 = -1;
+                chan.cread((char*)& data1, sizeof(double));
+
+                chan.cwrite(&dat2, sizeof(datamsg));
+                double data2 = -1;
+                chan.cread((char*)& data2, sizeof(double));
+                
+                x += 0.004;
+            }
+            request_data_point.close();
+
+            gettimeofday(&end_time, NULL);
+
+            double runtime = (end_time.tv_sec - start_time.tv_sec) * 1e6;
+            runtime = (runtime + (end_time.tv_sec - start_time.tv_sec)) * 1e-6;
+            cout << "Runtime of copying datapoints of 1.csv :" << fixed << runtime << setprecision(6);
+            cout << "sec" << endl;
+        }
+        
+    
         // doing file request
         filemsg *file = new filemsg(0, 0);
         string filename1 = "1.csv";
