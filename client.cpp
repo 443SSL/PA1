@@ -23,7 +23,7 @@ int main(int argc, char *argv[]){
     if(control == 0){
         char *server_args[] = {"./server", NULL};
         execvp(server_args[0], server_args);
-        perror("execvp fork failure")
+        perror("execvp fork failure");
     } else {
         FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
         datamsg *d1 = new datamsg(1, 0.004, 2 );
