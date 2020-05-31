@@ -17,11 +17,12 @@ int main(int argc, char *argv[]){
     //char x = 55;
     //chan.cwrite (&x, sizeof (x));
     //int nbytes = chan.cread (buf, MAX_MESSAGE);
+    srand(time_t(NULL));
 
     int control = fork();
     if(control == 0){
-        char *args[] = {"./dataserver", NULL};
-        execvp(args[0], args);
+        char *server_args[] = {"./server", NULL};
+        execvp(server_args[0], server_args);
     } else {
         FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
         datamsg *d1 = new datamsg(1, 0.004, 2 );
