@@ -34,6 +34,27 @@ int main(int argc, char *argv[]){
         // deleting pointer
         delete d1;
 
+        bool ecgF = false;
+        bool fileF = false;
+        bool chanF = false;
+        bool patientF = false;
+        bool timeF = false;
+        int patientNum = -1;
+
+        for(int i = 0; i < argc; i++){
+           if(argv[i] == "-f"){
+               fileF = true;
+           } else if(argv[i] == "-c"){
+               chanF = true;
+           } else if(argv[i] == "-p"){
+               patientF = true;
+           }else if(argv[i] == "-t"){
+               timeF = true;
+           } else if(argv[i] == "-e"){
+               ecgF = true;
+           }
+        }
+
         // requesting 1000 individual points from the file
         struct timeval start_time;
         struct timeval end_time;
@@ -45,11 +66,6 @@ int main(int argc, char *argv[]){
         string output_path = string("received/") + filename;
         FILE *f = fopen(output_path.c_str(), "wb");
 
-        
-        int patientNum = -1;
-        //for(int i = 0; i < sizeof(argv); i++){
-        //    cout << "wow" << endl; 
-        //}
         if(patientNum != -1){
             ofstream request_data_point;
             request_data_point.open("received/x1.csv");
