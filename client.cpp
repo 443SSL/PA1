@@ -6,6 +6,7 @@
  */
 #include "common.h"
 #include "FIFOreqchannel.h"
+#include <sys/wait.h>
 
 using namespace std;
 
@@ -13,36 +14,23 @@ using namespace std;
 int main(int argc, char *argv[]){
     srand(time_t(NULL));
 
-    int control = fork();
-    if(control == 0){
+    bool ecgF = false;
+    bool fileF = false;
+    bool chanF = false;
+    bool patientF = false;
+    bool timeF = false;
+    int stat;
+    int eRec;
+    double time;
+    int patientNum = -1;
+    string filename = "";
+
+    pid_t pid = fork();
+    if(pid == 0){
         char *server_args[] = {"./server", NULL};
         execvp(server_args[0], server_args);
         perror("execvp fork failure");
-    } else {
-
-        // creating channel
-        FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
-
-        // this is a demonstration of creating message to write to server
-        datamsg *d1 = new datamsg(1, 0.004, 2 );
-        chan.cwrite (&d1, sizeof(datamsg));
-        // creating double to hold data when read from server
-        double data = 0;
-        // reading data from server
-        chan.cread(&data, sizeof(double));
-        //printf("data = %lf", data);
-        // deleting pointer
-        delete d1;
-
-        bool ecgF = false;
-        bool fileF = false;
-        bool chanF = false;
-        bool patientF = false;
-        bool timeF = false;
-        int eRec;
-        double time;
-        int patientNum = -1;
-        string globalFile = "";
+    } else if (0 < pid){
 
         // controls control flow by parsing cli input
         int cliArg;
@@ -62,16 +50,42 @@ int main(int argc, char *argv[]){
                     break;
                 case 'f':
                     fileF = true;
-                    globalFile = optarg;
+                    filename = optarg;
                     break;
                 case 'c':
                     chanF = true;
                     break;
                 default:
+                // no argument case
                     break;
 
             }
         }
+    }
+
+    // creating channel
+    FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
+
+    // this is a demonstration of creating message to write to server
+    datamsg *d1 = new datamsg(1, 0.004, 2 );
+    chan.cwrite (&d1, sizeof(datamsg));
+    // creating double to hold data when read from server
+    double data = 0;
+    // reading data from server
+    chan.cread(&data, sizeof(double));
+    //printf("data = %lf", data);
+    // deleting pointer
+    delete d1;
+
+    if(patientF && timeF && ecgF){
+        datamsg dat(patientNum, time, eRec);
+        chan.cwrite(&dat, sizeof(dat));
+
+        MESSAGE_TYPE quitting = QUIT_MSG;
+        chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
+        
+
+    } else if (patientF && !timeF && !ecgF){
         // requesting 1000 individual points from the file
         struct timeval start_time;
         struct timeval end_time;
@@ -79,14 +93,12 @@ int main(int argc, char *argv[]){
         // getting start time
         gettimeofday(&start_time, NULL);
 
-        string filename = "x1.csv";
-        string output_path = string("received/") + filename;
+        string output_path = string("received/x") + filename;
         FILE *f = fopen(output_path.c_str(), "wb");
 
         if(patientNum != -1){
             ofstream request_data_point;
             request_data_point.open("received/x1.csv");
-
             double x = 0;
             while(x < 59.996){
                 datamsg dat1(patientNum, x, 1);
@@ -110,22 +122,23 @@ int main(int argc, char *argv[]){
             runtime = (runtime + (end_time.tv_sec - start_time.tv_sec)) * 1e-6;
             cout << "Runtime of copying datapoints of 1.csv :" << fixed << runtime << setprecision(6);
             cout << "sec" << endl;
+            fclose(f);
+            MESSAGE_TYPE quitting = QUIT_MSG;
+            chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
         }
-        
-    
+    } else if(fileF){
         // doing file request
         filemsg *file = new filemsg(0, 0);
-        string filename1 = "1.csv";
-        int request = sizeof(filemsg) + filename1.size() + 1;
+        int request = sizeof(filemsg) + filename.size() + 1;
         char *buf1 = new char[request];
         memcpy(buf1, file, sizeof(filemsg));
-        strcpy(buf1 + sizeof(filemsg), filename1.c_str());
+        strcpy(buf1 + sizeof(filemsg), filename.c_str());
         chan.cwrite(buf1, request);
 
         __int64_t filesize;
         chan.cread(&filesize, sizeof(__int64_t));
         
-        string output_path1 = string("received/") + filename1;
+        string output_path1 = string("received/") + filename;
         FILE *f1 = fopen(output_path1.c_str(), "wb");
         char *receiver = new char[MAX_MESSAGE];
 
@@ -139,13 +152,25 @@ int main(int argc, char *argv[]){
             filesize -= r_length;
         }
 
-        fclose(f);
+        
         fclose(f1);
         delete buf1;
         delete receiver;
-
         // closing the channel    
-        MESSAGE_TYPE m = QUIT_MSG;
-        chan.cwrite (&m, sizeof (MESSAGE_TYPE));
+        MESSAGE_TYPE quitting = QUIT_MSG;
+        chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
+    } else if(chanF){
+        cout << "wow" << endl;
+        MESSAGE_TYPE quitting = QUIT_MSG;
+        chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
+    } else {
+        cout << "error" << endl;
+        MESSAGE_TYPE quitting = QUIT_MSG;
+        chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
+    }
+
+    pid_t progExit = wait(&stat);
+    if(WIFEXITED(stat)){
+        printf("Parent: child exited with status: %d\n", WIFEXITED(stat));
     }
 }
