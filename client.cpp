@@ -39,22 +39,39 @@ int main(int argc, char *argv[]){
         bool chanF = false;
         bool patientF = false;
         bool timeF = false;
+        int eRec;
+        double time;
         int patientNum = -1;
+        string globalFile = "";
 
-        for(int i = 0; i < argc; i++){
-           if(argv[i] == "-f"){
-               fileF = true;
-           } else if(argv[i] == "-c"){
-               chanF = true;
-           } else if(argv[i] == "-p"){
-               patientF = true;
-           }else if(argv[i] == "-t"){
-               timeF = true;
-           } else if(argv[i] == "-e"){
-               ecgF = true;
-           }
+        // controls control flow by parsing cli input
+        int cliArg;
+        while((cliArg = getopt(argc, argv, "p:t:e:f:c"))){
+            switch(cliArg){
+                case 'p':
+                    patientNum = atoi(optarg);
+                    patientF = true;
+                    break;
+                case 't':
+                    time = atof(optarg);
+                    timeF = true;
+                    break;
+                case 'e':
+                    eRec = atoi(optarg);
+                    ecgF = true;
+                    break;
+                case 'f':
+                    fileF = true;
+                    globalFile = optarg;
+                    break;
+                case 'c':
+                    chanF = true;
+                    break;
+                default:
+                    break;
+
+            }
         }
-
         // requesting 1000 individual points from the file
         struct timeval start_time;
         struct timeval end_time;
