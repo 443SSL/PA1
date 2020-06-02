@@ -6,7 +6,9 @@
  */
 #include "common.h"
 #include "FIFOreqchannel.h"
+#include <getopt.h>
 #include <sys/wait.h>
+#include <sys/types.h>
 
 using namespace std;
 
@@ -19,65 +21,73 @@ int main(int argc, char *argv[]){
     bool chanF = false;
     bool patientF = false;
     bool timeF = false;
+    bool bufM = false;
+    char* newBufSz;
     int stat;
     int eRec;
     double time;
     int patientNum = -1;
-    string filename = "";
+    string filename = "1.csv";
 
-    pid_t pid = fork();
-    if(pid == 0){
-        char *server_args[] = {"./server", NULL};
-        execvp(server_args[0], server_args);
-        perror("execvp fork failure");
-    } else if (0 < pid){
+    // controls control flow by parsing cli input
+    int cliArg;
+    while((cliArg = getopt(argc, argv, "p:t:e:f:c:m")) != -1){
+        switch(cliArg){
+            case 'p':
+                patientNum = atoi(optarg);
+                patientF = true;
+                break;
+            case 't':
+                time = atof(optarg);
+                timeF = true;
+                break;
+            case 'e':
+                eRec = atoi(optarg);
+                ecgF = true;
+                break;
+            case 'f':
+                filename = optarg;
+                fileF = true;
+                break;
+            case 'c':
+                chanF = true;
+                break;
+            case 'm':
+                newBufSz = optarg;
+                bufM = true;
+            default:
+            // no argument case
+                break;
 
-        // controls control flow by parsing cli input
-        int cliArg;
-        while((cliArg = getopt(argc, argv, "p:t:e:f:c"))){
-            switch(cliArg){
-                case 'p':
-                    patientNum = atoi(optarg);
-                    patientF = true;
-                    break;
-                case 't':
-                    time = atof(optarg);
-                    timeF = true;
-                    break;
-                case 'e':
-                    eRec = atoi(optarg);
-                    ecgF = true;
-                    break;
-                case 'f':
-                    fileF = true;
-                    filename = optarg;
-                    break;
-                case 'c':
-                    chanF = true;
-                    break;
-                default:
-                // no argument case
-                    break;
-
-            }
         }
     }
 
-    // creating channel
-    FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
-
+    pid_t pid = fork();
+    if(pid == 0){
+        if(bufM){
+            char *server_args[] = {"./server","-m", newBufSz, NULL};
+            execvp(server_args[0], server_args);
+            perror("execvp fork failure");
+        } else {
+            char *server_args[] = {"./server", NULL};
+            execvp(server_args[0], server_args);
+            perror("execvp fork failure");
+        }
+    }
     // this is a demonstration of creating message to write to server
-    datamsg *d1 = new datamsg(1, 0.004, 2 );
-    chan.cwrite (&d1, sizeof(datamsg));
+    //datamsg *d1 = new datamsg(1, 0.004, 2 );
+    //chan.cwrite (&d1, sizeof(datamsg));
     // creating double to hold data when read from server
-    double data = 0;
+    //double data = 0;
     // reading data from server
-    chan.cread(&data, sizeof(double));
+    //chan.cread(&data, sizeof(double));
     //printf("data = %lf", data);
     // deleting pointer
-    delete d1;
+    //delete d1;
 
     if(patientF && timeF && ecgF){
+            // creating channel
+        FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
         datamsg dat(patientNum, time, eRec);
         chan.cwrite(&dat, sizeof(dat));
 
@@ -86,6 +96,9 @@ int main(int argc, char *argv[]){
         
 
     } else if (patientF && !timeF && !ecgF){
+
+        // creating channel
+        FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
         // requesting 1000 individual points from the file
         struct timeval start_time;
         struct timeval end_time;
@@ -127,6 +140,14 @@ int main(int argc, char *argv[]){
             chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
         }
     } else if(fileF){
+        struct timeval start_time;
+        struct timeval end_time;
+
+        // getting start time
+        gettimeofday(&start_time, NULL);
+
+        // creating channel
+        FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
         // doing file request
         filemsg *file = new filemsg(0, 0);
         int request = sizeof(filemsg) + filename.size() + 1;
@@ -159,15 +180,27 @@ int main(int argc, char *argv[]){
         // closing the channel    
         MESSAGE_TYPE quitting = QUIT_MSG;
         chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
+
+        gettimeofday(&end_time, NULL);
+
+        double runtime = (end_time.tv_sec - start_time.tv_sec) * 1e6;
+        runtime = (runtime + (end_time.tv_sec - start_time.tv_sec)) * 1e-6;
+        cout << "Runtime of copying datapoints of 1.csv :" << fixed << runtime << setprecision(6);
+        cout << "sec" << endl;
     } else if(chanF){
-        cout << "wow" << endl;
+        // creating channel
+        FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
         MESSAGE_TYPE quitting = QUIT_MSG;
         chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
     } else {
+        // creating channel
+        FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
         cout << "error" << endl;
         MESSAGE_TYPE quitting = QUIT_MSG;
         chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
     }
+
+        
 
     pid_t progExit = wait(&stat);
     if(WIFEXITED(stat)){
