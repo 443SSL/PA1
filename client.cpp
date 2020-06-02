@@ -27,11 +27,12 @@ int main(int argc, char *argv[]){
     int eRec;
     double time;
     int patientNum = -1;
+    // setting a default value
     string filename = "1.csv";
 
     // controls control flow by parsing cli input
     int cliArg;
-    while((cliArg = getopt(argc, argv, "p:t:e:f:c:m")) != -1){
+    while((cliArg = getopt(argc, argv, "p:t:e:f:m:c")) != -1){
         switch(cliArg){
             case 'p':
                 patientNum = atoi(optarg);
@@ -53,12 +54,12 @@ int main(int argc, char *argv[]){
                 chanF = true;
                 break;
             case 'm':
-                newBufSz = optarg;
                 bufM = true;
-            default:
-            // no argument case
+                newBufSz = optarg;
                 break;
-
+            default:
+                // no argument case
+                break;
         }
     }
 
@@ -74,22 +75,17 @@ int main(int argc, char *argv[]){
             perror("execvp fork failure");
         }
     }
-    // this is a demonstration of creating message to write to server
-    //datamsg *d1 = new datamsg(1, 0.004, 2 );
-    //chan.cwrite (&d1, sizeof(datamsg));
-    // creating double to hold data when read from server
-    //double data = 0;
-    // reading data from server
-    //chan.cread(&data, sizeof(double));
-    //printf("data = %lf", data);
-    // deleting pointer
-    //delete d1;
 
     if(patientF && timeF && ecgF){
             // creating channel
         FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
-        datamsg dat(patientNum, time, eRec);
+        datamsg dat = datamsg(patientNum, time, eRec);
         chan.cwrite(&dat, sizeof(dat));
+
+        double dat1 = 0;
+        chan.cread((char *)& dat1, sizeof(double));
+
+        cout << "ECG Value: " << eRec << " is " << dat1 << endl;
 
         MESSAGE_TYPE quitting = QUIT_MSG;
         chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
@@ -110,7 +106,8 @@ int main(int argc, char *argv[]){
         ofstream outputFile(output_path);
 
         double x = 0;
-        while(x < 59.996){
+        int loopcontrol = 0;
+        while(loopcontrol < 1000){
             datamsg dat1 = datamsg(patientNum, x, 1);
             datamsg dat2 = datamsg(patientNum, x, 2);
 
@@ -127,6 +124,7 @@ int main(int argc, char *argv[]){
             outputFile << data2 << endl;
 
             x += 0.004;
+            loopcontrol += 1;
         }
         outputFile.close();
 
@@ -190,8 +188,26 @@ int main(int argc, char *argv[]){
     } else if(chanF){
         // creating channel
         FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
+
+        MESSAGE_TYPE newchan = NEWCHANNEL_MSG;
+        chan.cwrite(&newchan, sizeof(newchan));
+        char *chanName = new char[20];
+        chan.cread(chanName, sizeof(chanName));
+
+        cout << "New Channel Name :" << chanName << endl;
+
+        FIFORequestChannel chan1 (chanName, FIFORequestChannel::CLIENT_SIDE);
+        datamsg chan2dat = datamsg(1,1,1);
+        chan1.cwrite(&chan2dat, sizeof(chan2dat));
+        double chan2result;
+        chan1.cread((char *)& chan2result, sizeof(datamsg));
+
+        cout << "Chan2 data for demo: " << chan2result << endl;
+
+
         MESSAGE_TYPE quitting = QUIT_MSG;
         chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
+        chan1.cwrite (&quitting, sizeof (MESSAGE_TYPE));
     } else {
         cout << "Please run again with Arguments" << endl;
     }
