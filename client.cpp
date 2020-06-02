@@ -106,39 +106,39 @@ int main(int argc, char *argv[]){
         // getting start time
         gettimeofday(&start_time, NULL);
 
-        string output_path = string("received/x") + filename;
-        FILE *f = fopen(output_path.c_str(), "wb");
+        string output_path = string("received/x1.csv");
+        ofstream outputFile(output_path);
 
-        if(patientNum != -1){
-            ofstream request_data_point;
-            request_data_point.open("received/x1.csv");
-            double x = 0;
-            while(x < 59.996){
-                datamsg dat1(patientNum, x, 1);
-                datamsg dat2(patientNum, x, 2);
+        double x = 0;
+        while(x < 59.996){
+            datamsg dat1 = datamsg(patientNum, x, 1);
+            datamsg dat2 = datamsg(patientNum, x, 2);
 
-                chan.cwrite(&dat1, sizeof(datamsg));
-                double data1 = -1;
-                chan.cread((char*)& data1, sizeof(double));
+            chan.cwrite(&dat1, sizeof(datamsg));
+            double data1 = -1;
+            chan.cread((char*)& data1, sizeof(double));
 
-                chan.cwrite(&dat2, sizeof(datamsg));
-                double data2 = -1;
-                chan.cread((char*)& data2, sizeof(double));
-                
-                x += 0.004;
-            }
-            request_data_point.close();
+            chan.cwrite(&dat2, sizeof(datamsg));
+            double data2 = -1;
+            chan.cread((char*)& data2, sizeof(double));
 
-            gettimeofday(&end_time, NULL);
+            outputFile << x << ",";
+            outputFile << data1 << ",";
+            outputFile << data2 << endl;
 
-            double runtime = (end_time.tv_sec - start_time.tv_sec) * 1e6;
-            runtime = (runtime + (end_time.tv_sec - start_time.tv_sec)) * 1e-6;
-            cout << "Runtime of copying datapoints of 1.csv :" << fixed << runtime << setprecision(6);
-            cout << "sec" << endl;
-            fclose(f);
-            MESSAGE_TYPE quitting = QUIT_MSG;
-            chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
+            x += 0.004;
         }
+        outputFile.close();
+
+        gettimeofday(&end_time, NULL);
+
+        double runtime = (end_time.tv_sec - start_time.tv_sec) * 1e6;
+        runtime = (runtime + (end_time.tv_sec - start_time.tv_sec)) * 1e-6;
+        cout << "Runtime of copying datapoints:" << fixed << runtime << setprecision(6);
+        cout << "sec" << endl;
+        
+        MESSAGE_TYPE quitting = QUIT_MSG;
+        chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
     } else if(fileF){
         struct timeval start_time;
         struct timeval end_time;
@@ -185,7 +185,7 @@ int main(int argc, char *argv[]){
 
         double runtime = (end_time.tv_sec - start_time.tv_sec) * 1e6;
         runtime = (runtime + (end_time.tv_sec - start_time.tv_sec)) * 1e-6;
-        cout << "Runtime of copying datapoints of 1.csv :" << fixed << runtime << setprecision(6);
+        cout << "Runtime of File Transfer:" << fixed << runtime << setprecision(6);
         cout << "sec" << endl;
     } else if(chanF){
         // creating channel
@@ -193,15 +193,10 @@ int main(int argc, char *argv[]){
         MESSAGE_TYPE quitting = QUIT_MSG;
         chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
     } else {
-        // creating channel
-        FIFORequestChannel chan ("control", FIFORequestChannel::CLIENT_SIDE);
-        cout << "error" << endl;
-        MESSAGE_TYPE quitting = QUIT_MSG;
-        chan.cwrite (&quitting, sizeof (MESSAGE_TYPE));
+        cout << "Please run again with Arguments" << endl;
     }
 
-        
-
+    // ending the program and letting us know exit code
     pid_t progExit = wait(&stat);
     if(WIFEXITED(stat)){
         printf("Parent: child exited with status: %d\n", WIFEXITED(stat));
