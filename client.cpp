@@ -210,6 +210,7 @@ int main(int argc, char *argv[]){
         chan1.cwrite (&quitting, sizeof (MESSAGE_TYPE));
     } else {
         cout << "Please run again with Arguments" << endl;
+        exit(1);
     }
 
     // ending the program and letting us know exit code
