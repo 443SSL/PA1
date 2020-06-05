@@ -32,7 +32,7 @@ int main(int argc, char *argv[]){
 
     // controls control flow by parsing cli input
     int cliArg;
-    while((cliArg = getopt(argc, argv, "p:t:e:f:m:c")) != -1){
+    while((cliArg = getopt(argc, argv, "t:e:p:f:m:c")) != -1){
         switch(cliArg){
             case 'p':
                 patientNum = atoi(optarg);
